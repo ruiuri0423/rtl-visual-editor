@@ -40,6 +40,7 @@ class CircuitModel:
 
     def to_json(self) -> dict:
         return {
+            "module_name": self.module_name,
             "blocks": [
                 {
                     "id": b.id,
@@ -59,6 +60,7 @@ class CircuitModel:
     @classmethod
     def from_json(cls, data: dict) -> "CircuitModel":
         model = cls()
+        model.module_name = data.get("module_name", "")
         for b in data.get("blocks", []):
             block = Block(
                 id=b["id"],
