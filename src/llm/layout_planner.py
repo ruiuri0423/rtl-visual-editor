@@ -55,15 +55,22 @@ class LayoutPlanner:
         config = load_config(config_path)
         api_config = config.get("api", {}) if config else {}
 
-        self.api_key = api_key or api_config.get("key", "")
+        self.api_key = (api_key or api_config.get("key", "")).strip()
         self.base_url = base_url or api_config.get("base_url", "https://api.minimax.io/v1")
         self.model = model or api_config.get("model", "MiniMax-M2.7")
-        self.timeout_ms = api_config.get("timeout_ms", 3000000)
+        self.timeout_ms = api_config.get("timeout_ms", 60000)
 
         if not self.api_key:
             raise ValueError(
                 "API key is required. Set it in config.json or pass api_key parameter.\n"
                 f"Config file location: {Path(__file__).parent.parent.parent / 'config.json'}"
+            )
+
+        # Validate API key doesn't contain invalid characters for HTTP headers
+        if '\n' in self.api_key or '\r' in self.api_key:
+            raise ValueError(
+                f"API key contains invalid characters (newline). "
+                f"Please check your config.json or API key configuration."
             )
 
         self.client = OpenAI(
