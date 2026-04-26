@@ -1,3 +1,5 @@
+import logging
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QSplitter, QGraphicsView,
     QGraphicsScene, QVBoxLayout, QLabel, QMessageBox
@@ -14,15 +16,36 @@ from ..llm.layout_planner import LayoutPlanner
 from ..renderer.circuit_renderer import CircuitRenderer
 
 
+def setup_logging():
+    """設定 logging，輸出到 log 檔"""
+    log_dir = Path(__file__).parent.parent.parent / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / "gui.log"
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_path, encoding="utf-8"),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+
 class MainWindow(QMainWindow):
     parse_requested = pyqtSignal(str)
 
     def __init__(self, api_key: str = ""):
         super().__init__()
+        self.logger = setup_logging()
+        self.logger.info("MainWindow 初始化")
+
         self.setWindowTitle("RTL Visual Editor")
         self.setGeometry(100, 100, 1400, 900)
 
         self.api_key = api_key
+        self.logger.info(f"API key 已設定: {'Yes' if api_key else 'No (將從 config.json 讀取)'}")
         self.circuit_renderer = CircuitRenderer()
         self.current_model = None
 
@@ -74,10 +97,13 @@ class MainWindow(QMainWindow):
         self.graphics_view.setScene(self.circuit_renderer.get_scene())
 
     def _on_parse_requested(self, rtl_code: str):
+        self.logger.info("=== 開始解析 RTL ===")
         try:
             # Parse RTL
+            self.logger.info("步驟 1/5: 解析 RTL 程式碼...")
             parser = RtlParser()
             model = parser.parse(rtl_code)
+            self.logger.info(f"步驟 1 完成: 找到 {len(model.blocks)} 個區塊, {len(model.wires)} 條連線")
 
             if not model.blocks:
                 QMessageBox.warning(
@@ -89,22 +115,31 @@ class MainWindow(QMainWindow):
             self.current_model = model
 
             # Generate timing info for prompt
+            self.logger.info("步驟 2/5: 產生時序資訊...")
             reasoner = TimingReasoner()
             timing_info = reasoner.generate_promptSupplement(model)
+            self.logger.info(f"步驟 2 完成: {len(timing_info)} 字元時序資訊")
 
             # Try LLM layout, fallback to auto-layout if LLM fails
+            self.logger.info("步驟 3/5: 嘗試 LLM 布局...")
             self._generate_layout_with_llm(model, timing_info)
+            self.logger.info("步驟 3 完成")
 
             # Render
+            self.logger.info("步驟 4/5: 渲染電路圖...")
             self.circuit_renderer.render(model)
             self._update_graphics_view_scene()
+            self.logger.info("步驟 4 完成")
 
             # Update export panel
+            self.logger.info("步驟 5/5: 產生 RTL 輸出...")
             from ..backend.rtl_exporter import RtlExporter
             exporter = RtlExporter()
             rtl_output = exporter.export(model)
             self.export_panel.set_preview(rtl_output)
+            self.logger.info("步驟 5 完成")
 
+            self.logger.info(f"=== RTL 解析完成: {len(model.blocks)} 區塊, {len(model.wires)} 連線 ===")
             QMessageBox.information(
                 self, "Success",
                 f"Parsed {len(model.blocks)} blocks, {len(model.wires)} wires"
@@ -114,8 +149,10 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to parse RTL:\n{str(e)}")
 
     def _generate_layout_with_llm(self, model, timing_info: str):
+        self.logger.info("建立 LayoutPlanner 連線...")
         try:
             planner = LayoutPlanner(api_key=self.api_key)
+            self.logger.info("LayoutPlanner 建立成功，呼叫 generate_with_retry...")
             layout_model = planner.generate_with_retry(model)
             # Copy layout coordinates back to original model
             for bid, block in layout_model.blocks.items():
@@ -127,8 +164,10 @@ class MainWindow(QMainWindow):
             model.wires = layout_model.wires
         except ValueError as e:
             # No API key configured, use auto-layout
+            self.logger.warning(f"ValueError: {e} — 降級到 auto-layout")
             self._auto_layout(model)
         except Exception as e:
+            self.logger.error(f"LLM 布局失敗: {e} — 降級到 auto-layout")
             QMessageBox.warning(
                 self, "LLM Layout Failed",
                 f"Could not generate layout with LLM:\n{str(e)}\nUsing auto-layout instead."
@@ -137,6 +176,7 @@ class MainWindow(QMainWindow):
 
     def _auto_layout(self, model):
         """Simple auto-layout without LLM."""
+        self.logger.info("執行 auto-layout...")
         x = 50
         y = 50
         max_y = 0
@@ -168,6 +208,7 @@ class MainWindow(QMainWindow):
                 prev_block = block.id
 
     def _on_export_rtl(self):
+        self.logger.info("點擊 Export RTL 按鈕")
         if not self.current_model:
             QMessageBox.warning(self, "No Data", "No circuit to export.")
             return
@@ -183,6 +224,7 @@ class MainWindow(QMainWindow):
                 f.write(code)
 
     def _on_export_png(self):
+        self.logger.info("點擊 Export PNG 按鈕")
         if not self.current_model:
             QMessageBox.warning(self, "No Data", "No circuit to export.")
             return
@@ -194,8 +236,10 @@ class MainWindow(QMainWindow):
         if path:
             pixmap = self.graphics_view.grab()
             pixmap.save(path)
+            self.logger.info(f"PNG 已匯出: {path}")
 
     def _on_export_pdf(self):
+        self.logger.info("點擊 Export PDF 按鈕")
         if not self.current_model:
             QMessageBox.warning(self, "No Data", "No circuit to export.")
             return
@@ -206,3 +250,4 @@ class MainWindow(QMainWindow):
         if path:
             pixmap = self.graphics_view.grab()
             pixmap.save(path)
+            self.logger.info(f"PDF 已匯出: {path}")
