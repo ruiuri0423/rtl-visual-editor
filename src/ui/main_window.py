@@ -92,12 +92,8 @@ class MainWindow(QMainWindow):
             reasoner = TimingReasoner()
             timing_info = reasoner.generate_promptSupplement(model)
 
-            # If API key is available, use LLM for layout
-            if self.api_key:
-                self._generate_layout_with_llm(model, timing_info)
-            else:
-                # Auto-layout without LLM
-                self._auto_layout(model)
+            # Try LLM layout, fallback to auto-layout if LLM fails
+            self._generate_layout_with_llm(model, timing_info)
 
             # Render
             self.circuit_renderer.render(model)
@@ -129,6 +125,9 @@ class MainWindow(QMainWindow):
                     model.blocks[bid].width = block.width
                     model.blocks[bid].height = block.height
             model.wires = layout_model.wires
+        except ValueError as e:
+            # No API key configured, use auto-layout
+            self._auto_layout(model)
         except Exception as e:
             QMessageBox.warning(
                 self, "LLM Layout Failed",
