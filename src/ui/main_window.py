@@ -43,7 +43,7 @@ class MainWindow(QMainWindow):
         self.graphics_view.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.graphics_view.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
         self.graphics_view.setViewportUpdateMode(
-            QGraphicsView.ViewportUpdateMode.FullViewportUpdateMode
+            QGraphicsView.ViewportUpdateMode.FullViewportUpdate
         )
         self._update_graphics_view_scene()
 
