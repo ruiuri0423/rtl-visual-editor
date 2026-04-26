@@ -6,14 +6,16 @@ class RtlParser:
     def parse(self, rtl_code: str) -> CircuitModel:
         model = CircuitModel()
 
-        # Extract module name and ports
-        module_match = re.search(r'module\s+(\w+)\s*(?:#\s*\([^)]*\))?\s*\(', rtl_code, re.MULTILINE)
+        # Extract module name - strip parameter block first to avoid nested parens
+        temp_code = re.sub(r'#\s*\([^)]*\)', '', rtl_code)
+        module_match = re.search(r'module\s+(\w+)', temp_code)
         if not module_match:
             return model
         model.module_name = module_match.group(1)
 
-        # Parse module ports
-        port_match = re.search(r'module\s+\w+\s*(?:#\s*\([^)]*\))?\s*\(([\s\S]*?)\)\s*;', rtl_code, re.MULTILINE)
+        # Parse module ports - find port list more robustly
+        temp_code = re.sub(r'#\s*\([^)]*\)', '', rtl_code)  # Remove parameter block
+        port_match = re.search(r'\(\s*([\s\S]*?)\)\s*;', temp_code)
         if port_match:
             port_list = self._parse_port_list(port_match.group(1))
             for direction, name, bits in port_list:
@@ -122,7 +124,13 @@ class RtlParser:
 
     def _parse_port_list(self, port_text: str) -> List[Tuple[str, str, int]]:
         ports = []
-        for line in port_text.split(','):
+        # Normalize: remove leading/trailing whitespace, handle comma-prefixed ports
+        text = port_text.strip()
+        # Remove leading commas and normalize whitespace
+        text = re.sub(r'^\s*,', '', text, flags=re.MULTILINE)
+        text = re.sub(r'\s+,\s*', '\n', text)
+
+        for line in text.split('\n'):
             line = line.strip()
             if not line:
                 continue
@@ -131,7 +139,6 @@ class RtlParser:
             output_match = re.match(r'output\s+(?:\[([^\]]+)-1:0\])?\s*(\w+)', line)
             if input_match:
                 bits_expr = input_match.group(1)
-                # If it's a numeric expression like "8", use it; otherwise 0 (parameterized)
                 try:
                     bits = int(bits_expr) if bits_expr else 0
                 except ValueError:
