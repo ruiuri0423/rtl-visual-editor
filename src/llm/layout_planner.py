@@ -91,7 +91,24 @@ class LayoutPlanner:
             ],
         )
         content = response.choices[0].message.content
-        return self.parse_llm_response(json.loads(content))
+        # MiniMax-M2.7 returns content inside 【...】 tags, extract JSON from it
+        json_str = self._extract_json(content)
+        return self.parse_llm_response(json.loads(json_str))
+
+    def _extract_json(self, content: str) -> str:
+        """Extract JSON from MiniMax model response that may contain thinking tags."""
+        if not content:
+            raise ValueError("Empty response from LLM")
+        # Strip thinking tags like 【...】 or 【...】 if present
+        import re
+        # Remove 【...】 blocks (MiniMax thinking tags)
+        cleaned = re.sub(r'【.*?】', '', content, flags=re.DOTALL)
+        # Also handle <think>...</think> if present
+        cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
+        cleaned = cleaned.strip()
+        if not cleaned:
+            raise ValueError(f"No JSON found in response: {content[:200]}")
+        return cleaned
 
     def parse_llm_response(self, response: dict) -> CircuitModel:
         return CircuitModel.from_json(response)
