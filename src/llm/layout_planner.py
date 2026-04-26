@@ -96,15 +96,17 @@ class LayoutPlanner:
         return self.parse_llm_response(json.loads(json_str))
 
     def _extract_json(self, content: str) -> str:
-        """Extract JSON from MiniMax model response that may contain thinking tags."""
+        """Extract JSON from MiniMax model response that may contain thinking tags or markdown."""
         if not content:
             raise ValueError("Empty response from LLM")
-        # Strip thinking tags like 【...】 or 【...】 if present
         import re
-        # Remove 【...】 blocks (MiniMax thinking tags)
+        # Remove thinking tags like 【...】
         cleaned = re.sub(r'【.*?】', '', content, flags=re.DOTALL)
-        # Also handle <think>...</think> if present
+        # Remove <think>...</think> blocks
         cleaned = re.sub(r'<think>.*?</think>', '', cleaned, flags=re.DOTALL)
+        # Remove markdown code blocks like ```json ... ```
+        cleaned = re.sub(r'```(?:json)?\s*', '', cleaned)
+        cleaned = re.sub(r'```\s*$', '', cleaned)
         cleaned = cleaned.strip()
         if not cleaned:
             raise ValueError(f"No JSON found in response: {content[:200]}")
