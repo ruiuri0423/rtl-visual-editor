@@ -1,6 +1,7 @@
 import json
 from typing import Optional
-from openai import OpenAI
+import os
+from anthropic import Anthropic
 from src.backend.circuit_model import CircuitModel
 from src.backend.timing_reasoner import TimingReasoner
 
@@ -29,10 +30,27 @@ DEFAULT_USER_PROMPT_TEMPLATE = """## 電路結構
 ## 請產生區塊佈局（JSON格式）
 """
 
+
 class LayoutPlanner:
-    def __init__(self, api_key: str, model: str = "gpt-4o"):
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
+    def __init__(
+        self,
+        api_key: str = "",
+        base_url: str = "https://api.minimax.io/anthropic",
+        model: str = "MiniMax-M2.7"
+    ):
+        self.api_key = api_key or os.environ.get("ANTHROPIC_AUTH_TOKEN", "")
+        self.base_url = base_url or os.environ.get("ANTHROPIC_BASE_URL", "")
+        self.model = model or os.environ.get("ANTHROPIC_MODEL", "MiniMax-M2.7")
+
+        if not self.api_key:
+            raise ValueError("API key is required. Set ANTHROPIC_AUTH_TOKEN environment variable or pass api_key parameter.")
+
+        # Configure Anthropic client to use MiniMax endpoint
+        self.client = Anthropic(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=3000000,  # 30 seconds
+        )
         self.timing_reasoner = TimingReasoner()
 
     def build_prompt(self, model: CircuitModel, timing_prompt: str = "") -> str:
@@ -45,16 +63,15 @@ class LayoutPlanner:
 
     def generate_layout(self, model: CircuitModel, timing_info: str = "") -> CircuitModel:
         prompt = self.build_prompt(model, timing_info)
-        response = self.client.chat.completions.create(
+        response = self.client.messages.create(
             model=self.model,
+            max_tokens=4096,
+            system=DEFAULT_SYSTEM_PROMPT,
             messages=[
-                {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
-            response_format={"type": "json_object"},
-            temperature=0.3,
         )
-        content = response.choices[0].message.content
+        content = response.content[0].text
         return self.parse_llm_response(json.loads(content))
 
     def parse_llm_response(self, response: dict) -> CircuitModel:
