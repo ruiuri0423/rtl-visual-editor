@@ -1,6 +1,7 @@
 import json
-from typing import Optional
 import os
+from pathlib import Path
+from typing import Optional
 from anthropic import Anthropic
 from src.backend.circuit_model import CircuitModel
 from src.backend.timing_reasoner import TimingReasoner
@@ -31,25 +32,47 @@ DEFAULT_USER_PROMPT_TEMPLATE = """## 電路結構
 """
 
 
+def load_config(config_path: Optional[str] = None) -> dict:
+    """Load configuration from JSON file."""
+    if config_path is None:
+        # Look for config.json in the project root
+        config_path = Path(__file__).parent.parent.parent / "config.json"
+    else:
+        config_path = Path(config_path)
+
+    if config_path.exists():
+        with open(config_path, "r") as f:
+            return json.load(f)
+    return {}
+
+
 class LayoutPlanner:
     def __init__(
         self,
         api_key: str = "",
-        base_url: str = "https://api.minimax.io/anthropic",
-        model: str = "MiniMax-M2.7"
+        base_url: str = "",
+        model: str = "",
+        config_path: Optional[str] = None
     ):
-        self.api_key = api_key or os.environ.get("ANTHROPIC_AUTH_TOKEN", "")
-        self.base_url = base_url or os.environ.get("ANTHROPIC_BASE_URL", "")
-        self.model = model or os.environ.get("ANTHROPIC_MODEL", "MiniMax-M2.7")
+        # Load config from JSON file
+        config = load_config(config_path)
+        api_config = config.get("api", {})
+
+        self.api_key = api_key or api_config.get("key", "")
+        self.base_url = base_url or api_config.get("base_url", "https://api.minimax.io/anthropic")
+        self.model = model or api_config.get("model", "MiniMax-M2.7")
+        self.timeout_ms = api_config.get("timeout_ms", 3000000)
 
         if not self.api_key:
-            raise ValueError("API key is required. Set ANTHROPIC_AUTH_TOKEN environment variable or pass api_key parameter.")
+            raise ValueError(
+                "API key is required. Set it in config.json or pass api_key parameter.\n"
+                f"Config file location: {Path(__file__).parent.parent.parent / 'config.json'}"
+            )
 
-        # Configure Anthropic client to use MiniMax endpoint
         self.client = Anthropic(
             api_key=self.api_key,
             base_url=self.base_url,
-            timeout=3000000,  # 30 seconds
+            timeout=self.timeout_ms / 1000,  # Convert to seconds
         )
         self.timing_reasoner = TimingReasoner()
 

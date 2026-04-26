@@ -28,3 +28,4 @@ Thumbs.db
 # Project specific
 *.pyc
 .pytest_cache/
+config.json

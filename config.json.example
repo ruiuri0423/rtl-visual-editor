@@ -1,0 +1,14 @@
+{
+    "api": {
+        "key": "",
+        "base_url": "https://api.minimax.io/anthropic",
+        "model": "MiniMax-M2.7",
+        "timeout_ms": 3000000
+    },
+    "layout": {
+        "view_width": 1200,
+        "view_height": 800,
+        "default_block_width": 100,
+        "default_block_height": 60
+    }
+}

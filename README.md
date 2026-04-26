@@ -42,19 +42,24 @@ pip install -e .
 
 **4. 設定 MiniMax API**
 
+複製設定檔範本並填入你的 API Key：
+
 ```powershell
-# 設定環境變數（永久）
-setx ANTHROPIC_AUTH_TOKEN "your-minimax-api-key"
-setx ANTHROPIC_BASE_URL "https://api.minimax.io/anthropic"
-setx ANTHROPIC_MODEL "MiniMax-M2.7"
+# 複製範本
+copy config.json.example config.json
 ```
 
-或在 Python 中設定：
-```python
-import os
-os.environ["ANTHROPIC_AUTH_TOKEN"] = "your-minimax-api-key"
-os.environ["ANTHROPIC_BASE_URL"] = "https://api.minimax.io/anthropic"
-os.environ["ANTHROPIC_MODEL"] = "MiniMax-M2.7"
+编辑 `config.json`：
+
+```json
+{
+    "api": {
+        "key": "your-minimax-api-key",
+        "base_url": "https://api.minimax.io/anthropic",
+        "model": "MiniMax-M2.7",
+        "timeout_ms": 3000000
+    }
+}
 ```
 
 **5. 執行應用程式**
