@@ -34,7 +34,7 @@ def test_build_prompt_with_timing():
 
 def test_default_model():
     planner = LayoutPlanner(api_key="test-key")
-    assert planner.model == "gpt-4o"
+    assert planner.model == "MiniMax-M2.7"
 
 @patch('src.llm.layout_planner.OpenAI')
 def test_generate_layout_calls_api(mock_openai):
