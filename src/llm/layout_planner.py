@@ -1,8 +1,7 @@
 import json
-import os
 from pathlib import Path
 from typing import Optional
-from anthropic import Anthropic
+from openai import OpenAI
 from src.backend.circuit_model import CircuitModel
 from src.backend.timing_reasoner import TimingReasoner
 
@@ -35,7 +34,6 @@ DEFAULT_USER_PROMPT_TEMPLATE = """## 電路結構
 def load_config(config_path: Optional[str] = None) -> dict:
     """Load configuration from JSON file."""
     if config_path is None:
-        # Look for config.json in the project root
         config_path = Path(__file__).parent.parent.parent / "config.json"
     else:
         config_path = Path(config_path)
@@ -54,12 +52,11 @@ class LayoutPlanner:
         model: str = "",
         config_path: Optional[str] = None
     ):
-        # Load config from JSON file
         config = load_config(config_path)
         api_config = config.get("api", {})
 
         self.api_key = api_key or api_config.get("key", "")
-        self.base_url = base_url or api_config.get("base_url", "https://api.minimax.io/anthropic")
+        self.base_url = base_url or api_config.get("base_url", "https://api.minimax.io/v1")
         self.model = model or api_config.get("model", "MiniMax-M2.7")
         self.timeout_ms = api_config.get("timeout_ms", 3000000)
 
@@ -69,10 +66,11 @@ class LayoutPlanner:
                 f"Config file location: {Path(__file__).parent.parent.parent / 'config.json'}"
             )
 
-        self.client = Anthropic(
+        self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
-            timeout=self.timeout_ms / 1000,  # Convert to seconds
+            timeout=self.timeout_ms / 1000,
+            default_headers={"Content-Type": "application/json"},
         )
         self.timing_reasoner = TimingReasoner()
 
@@ -86,15 +84,14 @@ class LayoutPlanner:
 
     def generate_layout(self, model: CircuitModel, timing_info: str = "") -> CircuitModel:
         prompt = self.build_prompt(model, timing_info)
-        response = self.client.messages.create(
+        response = self.client.chat.completions.create(
             model=self.model,
-            max_tokens=4096,
-            system=DEFAULT_SYSTEM_PROMPT,
             messages=[
+                {"role": "system", "content": DEFAULT_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ],
         )
-        content = response.content[0].text
+        content = response.choices[0].message.content
         return self.parse_llm_response(json.loads(content))
 
     def parse_llm_response(self, response: dict) -> CircuitModel:

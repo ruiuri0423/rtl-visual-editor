@@ -1,7 +1,7 @@
 {
     "api": {
         "key": "",
-        "base_url": "https://api.minimax.io/anthropic",
+        "base_url": "https://api.minimax.io/v1",
         "model": "MiniMax-M2.7",
         "timeout_ms": 3000000
     },
