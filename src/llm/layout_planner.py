@@ -53,7 +53,7 @@ class LayoutPlanner:
         config_path: Optional[str] = None
     ):
         config = load_config(config_path)
-        api_config = config.get("api", {})
+        api_config = config.get("api", {}) if config else {}
 
         self.api_key = api_key or api_config.get("key", "")
         self.base_url = base_url or api_config.get("base_url", "https://api.minimax.io/v1")
@@ -70,7 +70,6 @@ class LayoutPlanner:
             api_key=self.api_key,
             base_url=self.base_url,
             timeout=self.timeout_ms / 1000,
-            default_headers={"Content-Type": "application/json"},
         )
         self.timing_reasoner = TimingReasoner()
 
