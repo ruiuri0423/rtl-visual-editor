@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self.export_panel.export_rtl_btn.clicked.connect(self._on_export_rtl)
         self.export_panel.export_png_btn.clicked.connect(self._on_export_png)
         self.export_panel.export_pdf_btn.clicked.connect(self._on_export_pdf)
+        self.export_panel.show_circuit_btn.clicked.connect(self._on_show_circuit_model)
 
         right_splitter.addWidget(self.graphics_view)
         right_splitter.addWidget(self.properties_panel)
@@ -251,3 +252,13 @@ class MainWindow(QMainWindow):
             pixmap = self.graphics_view.grab()
             pixmap.save(path)
             self.logger.info(f"PDF 已匯出: {path}")
+
+    def _on_show_circuit_model(self):
+        self.logger.info("點擊 Show Circuit Model 按鈕")
+        if not self.current_model:
+            QMessageBox.warning(self, "No Data", "No circuit to show.")
+            return
+        import json
+        circuit_json = json.dumps(self.current_model.to_json(), indent=2, ensure_ascii=False)
+        self.export_panel.set_circuit_model(circuit_json)
+        self.logger.info(f"Circuit model 已顯示: {len(self.current_model.blocks)} 區塊, {len(self.current_model.wires)} 連線")
